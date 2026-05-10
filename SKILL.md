@@ -31,7 +31,7 @@ tags:
 > Skill author: Koutian Wu (ktwu01@gmail.com)
 > Skill version: 0.1.0-scaffold
 
-**What FESOM2 does:** Solves the ocean and sea-ice equations on an **unstructured triangular mesh** using finite-volume / finite-element methods. The unstructured mesh allows native multi-resolution: dense triangulation in a region of interest (e.g., Arctic, Gulf Stream, eddy-rich coast) coexisting with coarse mesh elsewhere, without nesting. Used in AWI-CM (atmosphere–ocean coupled with OpenIFS or ECHAM) and standalone.
+**What FESOM2 does:** Solves the ocean and sea-ice equations on an **unstructured triangular mesh** using **finite-volume** methods. (FESOM v1.4 used finite-element; the FE → FV transition was the primary motivation for v2 and gained ~3-5x performance.) The mesh is triangular horizontally and prismatic/layered vertically, with a **cell-vertex (A-grid)** discretization, velocities and tracers co-located. The unstructured mesh allows native multi-resolution: dense triangulation in a region of interest (Arctic, Gulf Stream, eddy-rich coast) coexisting with coarse mesh elsewhere. Used in AWI-CM (atmosphere–ocean coupled with OpenIFS or ECHAM) and standalone.
 
 **Reference:** Danilov, S., Sidorenko, D., Wang, Q., and Jung, T. (2017), *The Finite-volumE Sea ice–Ocean Model (FESOM2)*, Geosci. Model Dev., 10, 765–789, https://doi.org/10.5194/gmd-10-765-2017.
 
@@ -96,7 +96,7 @@ fesom2/
 
 1. **Mesh partitioning is a pre-run step.** Run `mesh_part` once per (mesh, MPI ranks) combination to generate the partition files; only then can the model run.
 2. **CMake is the modern build path.** `configure.sh` / `configure_any.sh` wrap CMake for convenience. Presets in `CMakePresets.json`.
-3. **Four namelists.** `namelist.config` (run control), `namelist.oce` (ocean physics), `namelist.ice` (sea ice), `namelist.forcing` (atmospheric forcing fields). All must be in the run directory.
+3. **Four core namelists, plus more if specific schemes are enabled.** `namelist.config` (run control), `namelist.oce` (ocean physics), `namelist.ice` (sea ice), `namelist.forcing` (atmospheric forcing fields). If you enable CVMix vertical mixing (the standard AWI configuration), you also need `namelist.cvmix`. All required namelists must be in the run directory.
 4. **Output is on the unstructured mesh.** You cannot open it in standard tools without mesh metadata; use `pyfesom2` / `tripyview` or interpolate to a regular grid first.
 5. **Mesh choice dominates everything.** Resolution, walltime, memory, and physics behavior are all controlled by the mesh. Don't tune namelists before checking mesh quality.
 
@@ -114,6 +114,14 @@ fesom2/
 | reference/coupling.md | OASIS3-MCT, AWI-CM |
 | reference/debugging.md | Common errors |
 
+## Critical agent gotchas (Gemini-reviewed)
+
+- **Restart and time tracking via `clock.txt`.** Job-chain management requires reading and updating this file; the model state is not self-describing through restart files alone.
+- **`mesh_part` produces `dist_info`** (a directory or file set with PE-decomposition info). Verify `dist_info` exists for your target rank count before launching, not just the partition output.
+- **METIS or SCOTCH required for large meshes.** The partitioner needs one of these graph-partitioning libraries linked in to handle high-resolution meshes.
+- **Vertical coordinate options matter:** $z^*$ (ALE-style), $z$-level with partial cells, sigma. Selected in `namelist.config`; affects stability and conservation properties.
+- **Required input files beyond mesh:** `bathymetry.nc` and initial conditions (commonly `ts.ocean.nc` or similar). A bare mesh is not a runnable configuration.
+
 ## Status
 
-Scaffold (v0.1.0-scaffold). Source-grounded layout verified. Operational depth being filled in.
+Scaffold (v0.1.0-scaffold). Source-grounded layout verified, with Gemini critique pass on 2026-05-09 to clarify FV (not FE), grid type (cell-vertex/A-grid), and required additional namelists/files. Operational depth being filled in.
